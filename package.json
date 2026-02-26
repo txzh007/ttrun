@@ -1,0 +1,48 @@
+{
+  "name": "tturn",
+  "version": "0.1.0",
+  "description": "High-performance TURN server for Node.js with embedded native core",
+  "keywords": [
+    "turn",
+    "webrtc",
+    "napi",
+    "rust",
+    "stun",
+    "relay"
+  ],
+  "license": "MIT",
+  "author": "",
+  "homepage": "https://github.com/your-name/tturn",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-name/tturn.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-name/tturn/issues"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "tturn": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "index.node",
+    "tturn.*.node",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build:native": "node scripts/build-native.js",
+    "build": "npm run build:native && tsc -p tsconfig.json",
+    "build:ts": "tsc -p tsconfig.json"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  }
+}
