@@ -12,13 +12,13 @@
   ],
   "license": "MIT",
   "author": "",
-  "homepage": "https://github.com/your-name/tturn",
+  "homepage": "https://github.com/txzh007/ttrun",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-name/tturn.git"
+    "url": "https://github.com/txzh007/ttrun.git"
   },
   "bugs": {
-    "url": "https://github.com/your-name/tturn/issues"
+    "url": "https://github.com/txzh007/ttrun/issues"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
