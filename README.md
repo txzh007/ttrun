@@ -148,3 +148,8 @@ Run demo:
 ```bash
 node dist/app.js
 ```
+
+## Release tag convention
+
+- Use plain semantic version tags without `v` prefix.
+- Example: `0.1.4` (correct), `v0.1.4` (do not use).
