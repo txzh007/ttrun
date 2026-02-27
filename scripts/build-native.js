@@ -19,8 +19,15 @@ const source = resolveArtifact(targetDir);
 const indexNode = join(root, "index.node");
 const tripleNode = join(root, binaryName());
 
-cpSync(source, indexNode);
 cpSync(source, tripleNode);
+
+try {
+  cpSync(source, indexNode);
+} catch (error) {
+  process.stderr.write(
+    `[tturn] warning: failed to update ${indexNode}: ${error instanceof Error ? error.message : String(error)}\n`
+  );
+}
 
 process.stdout.write(`Native addon copied to:\n- ${indexNode}\n- ${tripleNode}\n`);
 

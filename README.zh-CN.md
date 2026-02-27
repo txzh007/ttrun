@@ -1,6 +1,6 @@
 # Tturn（中文）
 
-[English](./README.en.md) | [中文](./README.zh-CN.md)
+[English（主文档）](./README.md) | [中文](./README.zh-CN.md)
 
 `tturn` 是一个高性能的 Node.js TURN 服务包。
 它使用内嵌原生核心（Rust + N-API），可以直接通过 npm 安装并运行，不依赖 Docker，也不需要额外安装 `turnserver.exe` 作为运行时。
@@ -32,18 +32,27 @@ import { Tturn } from "tturn";
 
 const turn = new Tturn({
   realm: "turn.example.com",
-  authSecret: "replace-with-your-secret",
+  password: "replace-with-your-password",
   publicIp: "1.2.3.4",
-  listenPort: 3478
+  listenPort: 3478,
+  username: "user-1001",
+  disableCredentialExpiry: true
 });
 
-await turn.start();
-
-const ice = turn.issueCredential({ ttlSec: 600, userId: "user-1001" });
+const ice = await turn.start();
 console.log(ice);
 
 await turn.stop();
 ```
+
+`start()` 会直接返回一组 ICE，因此最简流程只需要 `new Tturn(...)` 和 `start()`。
+
+如果你需要长时间持续连接，可设置 `disableCredentialExpiry: true`，生成不过期凭证。
+
+在静态账号密码模式（`password` + `username`）下：
+
+- 输出的 `username` 就是你配置的账号
+- 输出的 `credential` 就是你配置的密码
 
 ## 5）CLI 用法
 
@@ -53,16 +62,50 @@ TURN_REALM=turn.example.com TURN_SECRET=replace-with-your-secret tturn start
 
 # 生成一组 ICE 凭证
 TURN_REALM=turn.example.com TURN_SECRET=replace-with-your-secret tturn credential
+
+# 可选：传入自定义 username
+TURN_REALM=turn.example.com TURN_SECRET=replace-with-your-secret TTURN_USERNAME=alice tturn credential
+
+# 可选：禁用凭证过期（长期凭证）
+TURN_REALM=turn.example.com TURN_SECRET=replace-with-your-secret TTURN_USERNAME=alice TTURN_DISABLE_CREDENTIAL_EXPIRY=1 tturn credential
+
+# 静态账号密码（原样输出，不改写）
+TURN_REALM=turn.example.com TURN_USERNAME=alice TURN_PASSWORD=alice-pass TTURN_DISABLE_CREDENTIAL_EXPIRY=1 tturn start
 ```
+
+## 5.1）凭证参数补充（username）
+
+`issueCredential(options)` 额外支持 `username`（可选）。
+
+- 如果 `username` 已经以未来时间戳结尾（例如 `alice:1730000000`），会原样使用。
+- 否则会自动补上 `:<expiresAt>`，保证 TURN 鉴权可用。
+- 同时传 `username` 和 `userId` 时，优先使用 `username`。
 
 ## 6）配置参数说明
 
 - `realm`（必填）：TURN realm / 域名。
-- `authSecret`（必填）：动态凭证签名密钥。
+- `authSecret`（可选）：动态凭证签名密钥。
+- `password`（可选）：静态 TURN 密码（设置后返回值保持固定）。
 - `listenPort`（默认 `3478`）：TURN 监听端口。
 - `publicIp`（建议配置）：客户端访问的公网 IP。
 - `listeningIp`（默认 `0.0.0.0`）：本地绑定地址。
-- `minPort` / `maxPort`：预留给后续中继端口范围控制。
+- `username` / `userId`（可选）：默认凭证用户名种子，`username` 优先级更高。
+- `ttlSec`（可选）：`start()` 与 `issueCredential()` 的默认凭证时效。
+- `disableCredentialExpiry`（可选）：禁用时间戳过期校验，生成不过期凭证。
+- `minPort` / `maxPort`：中继分配端口范围（已在 native TURN 分配器中生效）。
+
+`authSecret` 和 `password` 至少需要提供一个。
+
+## 6.1）快速验证
+
+```bash
+npm install
+npm run build
+
+TURN_REALM=turn.example.com TURN_PUBLIC_IP=1.2.3.4 TURN_USERNAME=alice TURN_PASSWORD=alice-pass TTURN_DISABLE_CREDENTIAL_EXPIRY=1 node dist/cli.js credential
+```
+
+返回 JSON 中应保持 `username = "alice"`、`credential = "alice-pass"`。
 
 ## 7）源码构建
 

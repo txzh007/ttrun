@@ -13,6 +13,7 @@ use napi_derive::napi;
 use sha1::Sha1;
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
+use turn::relay::relay_range::RelayAddressGeneratorRanges;
 use turn::auth::{generate_auth_key, AuthHandler};
 use turn::relay::relay_static::RelayAddressGeneratorStatic;
 use turn::server::config::{ConnConfig, ServerConfig};
@@ -32,6 +33,9 @@ pub struct NativeServiceOptions {
   pub maxPort: Option<u16>,
   pub publicIp: String,
   pub listeningIp: String,
+  pub username: Option<String>,
+  pub password: Option<String>,
+  pub disableCredentialExpiry: Option<bool>,
 }
 
 #[napi(object)]
@@ -50,6 +54,9 @@ pub struct Health {
 
 struct SecretAuthHandler {
   secret: String,
+  disable_credential_expiry: bool,
+  static_username: Option<String>,
+  static_password: Option<String>,
 }
 
 impl AuthHandler for SecretAuthHandler {
@@ -59,7 +66,16 @@ impl AuthHandler for SecretAuthHandler {
     realm: &str,
     _src_addr: SocketAddr,
   ) -> std::result::Result<Vec<u8>, TurnError> {
-    if !username_is_fresh(username) {
+    if let Some(static_password) = &self.static_password {
+      if let Some(static_username) = &self.static_username {
+        if username != static_username {
+          return Err(TurnError::ErrFakeErr);
+        }
+      }
+      return Ok(generate_auth_key(username, realm, static_password));
+    }
+
+    if !self.disable_credential_expiry && !username_is_fresh(username) {
       return Err(TurnError::ErrFakeErr);
     }
 
@@ -82,10 +98,10 @@ impl NativeTurnService {
     if options.realm.is_empty() {
       return Err(Error::new(Status::InvalidArg, "realm is required".to_string()));
     }
-    if options.authSecret.is_empty() {
+    if options.authSecret.is_empty() && options.password.as_deref().unwrap_or("").is_empty() {
       return Err(Error::new(
         Status::InvalidArg,
-        "authSecret is required".to_string(),
+        "authSecret or password is required".to_string(),
       ));
     }
 
@@ -109,23 +125,56 @@ impl NativeTurnService {
     let public_ip = self.options.publicIp.clone();
     let realm = self.options.realm.clone();
     let secret = self.options.authSecret.clone();
+    let disable_credential_expiry = self.options.disableCredentialExpiry.unwrap_or(false);
+    let static_username = self.options.username.clone().filter(|v| !v.is_empty());
+    let static_password = self.options.password.clone().filter(|v| !v.is_empty());
+    let min_port = self.options.minPort;
+    let max_port = self.options.maxPort;
+
+    if let (Some(min), Some(max)) = (min_port, max_port) {
+      if min == 0 || max == 0 || max < min {
+        return Err(Error::new(
+          Status::InvalidArg,
+          "invalid relay port range (minPort/maxPort)".to_string(),
+        ));
+      }
+    }
 
     let server = self.runtime.block_on(async move {
       let conn = Arc::new(UdpSocket::bind(format!("{}:{}", bind_ip, listen_port)).await?);
       let relay_ip = IpAddr::from_str(&public_ip)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+      let net = Arc::new(Net::new(None));
+
+      let relay_addr_generator: Box<dyn turn::relay::RelayAddressGenerator + Send + Sync> =
+        match (min_port, max_port) {
+          (Some(min), Some(max)) => Box::new(RelayAddressGeneratorRanges {
+            relay_address: relay_ip,
+            min_port: min,
+            max_port: max,
+            max_retries: 0,
+            address: bind_ip.clone(),
+            net: net.clone(),
+          }),
+          _ => Box::new(RelayAddressGeneratorStatic {
+            relay_address: relay_ip,
+            address: bind_ip.clone(),
+            net,
+          }),
+        };
 
       let cfg = ServerConfig {
         conn_configs: vec![ConnConfig {
           conn,
-          relay_addr_generator: Box::new(RelayAddressGeneratorStatic {
-            relay_address: relay_ip,
-            address: bind_ip,
-            net: Arc::new(Net::new(None)),
-          }),
+          relay_addr_generator,
         }],
         realm,
-        auth_handler: Arc::new(SecretAuthHandler { secret }),
+        auth_handler: Arc::new(SecretAuthHandler {
+          secret,
+          disable_credential_expiry,
+          static_username,
+          static_password,
+        }),
         channel_bind_timeout: Duration::from_secs(0),
         alloc_close_notify: None,
       };
@@ -146,19 +195,35 @@ impl NativeTurnService {
   }
 
   #[napi(js_name = "issueCredential")]
-  pub fn issue_credential(&self, ttl_sec: Option<u32>, user_id: Option<String>) -> Result<NativeCredential> {
+  pub fn issue_credential(
+    &self,
+    ttl_sec: Option<u32>,
+    user_id: Option<String>,
+    username: Option<String>,
+  ) -> Result<NativeCredential> {
+    let static_password = self.options.password.clone().filter(|v| !v.is_empty());
+    let static_username = self.options.username.clone().filter(|v| !v.is_empty());
+    let disable_credential_expiry = self.options.disableCredentialExpiry.unwrap_or(false) || static_password.is_some();
     let ttl = ttl_sec.unwrap_or(3600).max(60);
-    let expires_at = now_unix() + ttl;
-    let username = match user_id {
-      Some(user) if !user.is_empty() => format!("{}:{}", user, expires_at),
-      _ => expires_at.to_string(),
+    let expires_at = if disable_credential_expiry {
+      0
+    } else {
+      now_unix() + ttl
     };
-    let password = hmac_password(&self.options.authSecret, &username)?;
+    let username = if static_password.is_some() {
+      static_username.unwrap_or_else(|| build_username(username, user_id, expires_at, disable_credential_expiry))
+    } else {
+      build_username(username, user_id, expires_at, disable_credential_expiry)
+    };
+    let password = match static_password {
+      Some(value) => value,
+      None => hmac_password(&self.options.authSecret, &username)?,
+    };
 
     Ok(NativeCredential {
       username,
       password,
-      ttlSec: ttl,
+      ttlSec: if disable_credential_expiry { 0 } else { ttl },
       expiresAt: expires_at,
     })
   }
@@ -190,6 +255,40 @@ impl Drop for NativeTurnService {
     if let Some(server) = self.server.take() {
       let _ = self.runtime.block_on(async move { server.close().await });
     }
+  }
+}
+
+fn build_username(
+  username: Option<String>,
+  user_id: Option<String>,
+  expires_at: u32,
+  disable_credential_expiry: bool,
+) -> String {
+  if disable_credential_expiry {
+    if let Some(raw) = username {
+      if !raw.is_empty() {
+        return raw;
+      }
+    }
+
+    return match user_id {
+      Some(user) if !user.is_empty() => user,
+      _ => "tturn-user".to_string(),
+    };
+  }
+
+  if let Some(raw) = username {
+    if !raw.is_empty() {
+      if username_is_fresh(&raw) {
+        return raw;
+      }
+      return format!("{}:{}", raw, expires_at);
+    }
+  }
+
+  match user_id {
+    Some(user) if !user.is_empty() => format!("{}:{}", user, expires_at),
+    _ => expires_at.to_string(),
   }
 }
 

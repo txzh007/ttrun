@@ -3,20 +3,35 @@ import { IceServer, IssueCredentialOptions, StartOptions, TurnServiceOptions } f
 
 export class TurnService {
   private readonly native: InstanceType<typeof binding.NativeTurnService>;
+  private readonly defaultIssueOptions: IssueCredentialOptions;
 
   constructor(options: TurnServiceOptions) {
+    const { username, password, userId, ttlSec, ...nativeOptions } = options;
+    const disableCredentialExpiry = options.disableCredentialExpiry ?? Boolean(password);
+
     this.native = new binding.NativeTurnService({
-      ...options,
-      listenPort: options.listenPort ?? 3478,
-      minPort: options.minPort ?? 49152,
-      maxPort: options.maxPort ?? 65535,
-      publicIp: options.publicIp ?? options.realm,
-      listeningIp: options.listeningIp ?? "0.0.0.0"
+      ...nativeOptions,
+      authSecret: nativeOptions.authSecret ?? "",
+      listenPort: nativeOptions.listenPort ?? 3478,
+      minPort: nativeOptions.minPort ?? 49152,
+      maxPort: nativeOptions.maxPort ?? 65535,
+      publicIp: nativeOptions.publicIp ?? nativeOptions.realm,
+      listeningIp: nativeOptions.listeningIp ?? "0.0.0.0",
+      username,
+      password,
+      disableCredentialExpiry
     });
+
+    this.defaultIssueOptions = {
+      ttlSec,
+      username,
+      userId
+    };
   }
 
-  async start(startOptions: StartOptions = {}): Promise<void> {
+  async start(startOptions: StartOptions = {}): Promise<IceServer> {
     this.native.start(Boolean(startOptions.detached));
+    return this.issueCredential();
   }
 
   async stop(): Promise<void> {
@@ -24,7 +39,8 @@ export class TurnService {
   }
 
   issueCredential(issueOptions: IssueCredentialOptions = {}): IceServer {
-    const out = this.native.issueCredential(issueOptions.ttlSec, issueOptions.userId);
+    const merged = { ...this.defaultIssueOptions, ...issueOptions };
+    const out = this.native.issueCredential(merged.ttlSec, merged.userId, merged.username);
     return {
       urls: this.native.getIceUrls(),
       username: out.username,

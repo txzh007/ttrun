@@ -2,23 +2,28 @@ import { Tturn } from "./index";
 
 const APP_CONFIG = {
   realm: "turn.example.com",
-  authSecret: "replace-with-your-secret",
+  authSecret: "",
+  password: "replace-with-your-password",
   publicIp: "1.2.3.4",
   listenPort: 3478,
-  ttlSec: 600
+  username: "google-test",
+  ttlSec: 600,
+  disableCredentialExpiry: true
 };
 
 async function main(): Promise<void> {
   const service = new Tturn({
     realm: APP_CONFIG.realm,
     authSecret: APP_CONFIG.authSecret,
+    password: APP_CONFIG.password,
     publicIp: APP_CONFIG.publicIp,
-    listenPort: APP_CONFIG.listenPort
+    listenPort: APP_CONFIG.listenPort,
+    username: APP_CONFIG.username,
+    ttlSec: APP_CONFIG.ttlSec,
+    disableCredentialExpiry: APP_CONFIG.disableCredentialExpiry
   });
 
-  await service.start();
-
-  const ice = service.issueCredential({ ttlSec: APP_CONFIG.ttlSec, userId: "google-test" });
+  const ice = await service.start();
   console.log("[tturn] started.");
   console.log("[tturn] use this ICE server in Google WebRTC tool:");
   console.log(JSON.stringify(ice, null, 2));

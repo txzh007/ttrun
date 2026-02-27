@@ -6,28 +6,46 @@ async function run(): Promise<void> {
   const command = process.argv[2];
 
   if (command === "credential") {
-    const secret = mustGetEnv("TURN_SECRET");
     const realm = mustGetEnv("TURN_REALM");
-    const service = createTurnService({ realm, authSecret: secret, publicIp: process.env.TURN_PUBLIC_IP });
+    const authOptions = resolveAuthOptions();
+    const service = createTurnService({
+      realm,
+      authSecret: authOptions.authSecret,
+      password: authOptions.password,
+      publicIp: process.env.TURN_PUBLIC_IP,
+      listenPort: process.env.TURN_PORT ? Number(process.env.TURN_PORT) : 3478,
+      minPort: process.env.TURN_MIN_PORT ? Number(process.env.TURN_MIN_PORT) : undefined,
+      maxPort: process.env.TURN_MAX_PORT ? Number(process.env.TURN_MAX_PORT) : undefined,
+      disableCredentialExpiry: readBoolEnv("TTURN_DISABLE_CREDENTIAL_EXPIRY") ?? Boolean(authOptions.password)
+    });
     const ice = service.issueCredential({
       ttlSec: process.env.TTURN_TTL_SEC ? Number(process.env.TTURN_TTL_SEC) : 3600,
-      userId: process.env.TTURN_USER_ID
+      userId: process.env.TTURN_USER_ID,
+      username: readUsernameEnv()
     });
     process.stdout.write(`${JSON.stringify(ice, null, 2)}\n`);
     return;
   }
 
   if (command === "start") {
-    const secret = mustGetEnv("TURN_SECRET");
     const realm = mustGetEnv("TURN_REALM");
+    const authOptions = resolveAuthOptions();
     const service = createTurnService({
       realm,
-      authSecret: secret,
+      authSecret: authOptions.authSecret,
+      password: authOptions.password,
       publicIp: process.env.TURN_PUBLIC_IP,
-      listenPort: process.env.TURN_PORT ? Number(process.env.TURN_PORT) : 3478
+      listenPort: process.env.TURN_PORT ? Number(process.env.TURN_PORT) : 3478,
+      minPort: process.env.TURN_MIN_PORT ? Number(process.env.TURN_MIN_PORT) : undefined,
+      maxPort: process.env.TURN_MAX_PORT ? Number(process.env.TURN_MAX_PORT) : undefined,
+      ttlSec: process.env.TTURN_TTL_SEC ? Number(process.env.TTURN_TTL_SEC) : 3600,
+      username: readUsernameEnv(),
+      userId: process.env.TTURN_USER_ID,
+      disableCredentialExpiry: readBoolEnv("TTURN_DISABLE_CREDENTIAL_EXPIRY") ?? Boolean(authOptions.password)
     });
-    await service.start();
+    const ice = await service.start();
     process.stdout.write("tturn started\n");
+    process.stdout.write(`${JSON.stringify(ice, null, 2)}\n`);
 
     await waitForSignal();
     await service.stop();
@@ -55,11 +73,38 @@ function printUsage(): void {
       "  tturn credential  # prints one ICE server credential JSON",
       "",
       "required env:",
-      "  TURN_REALM, TURN_SECRET",
+      "  TURN_REALM",
+      "  TURN_SECRET or TURN_PASSWORD",
       "optional env:",
-      "  TURN_PUBLIC_IP, TURN_PORT, TTURN_TTL_SEC, TTURN_USER_ID"
+      "  TURN_PUBLIC_IP, TURN_PORT, TURN_MIN_PORT, TURN_MAX_PORT, TTURN_TTL_SEC, TTURN_USER_ID, TTURN_USERNAME (or TURN_USERNAME), TTURN_DISABLE_CREDENTIAL_EXPIRY"
     ].join("\n") + "\n"
   );
+}
+
+function readUsernameEnv(): string | undefined {
+  return process.env.TTURN_USERNAME ?? process.env.TURN_USERNAME;
+}
+
+function resolveAuthOptions(): { authSecret: string; password?: string } {
+  const authSecret = process.env.TURN_SECRET;
+  const password = process.env.TURN_PASSWORD;
+  if (!authSecret && !password) {
+    throw new Error("Missing required env: TURN_SECRET or TURN_PASSWORD");
+  }
+
+  return {
+    authSecret: authSecret ?? "",
+    password
+  };
+}
+
+function readBoolEnv(name: string): boolean | undefined {
+  const value = process.env[name];
+  if (!value) {
+    return undefined;
+  }
+
+  return value === "1" || value.toLowerCase() === "true";
 }
 
 function waitForSignal(): Promise<void> {

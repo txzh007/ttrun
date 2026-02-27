@@ -12,7 +12,7 @@ interface NativeCredential {
 interface NativeTurnService {
   start(detached?: boolean): void;
   stop(): void;
-  issueCredential(ttlSec?: number, userId?: string): NativeCredential;
+  issueCredential(ttlSec?: number, userId?: string, username?: string): NativeCredential;
   getIceUrls(): string[];
   health(): { running: boolean };
 }
@@ -24,9 +24,9 @@ interface NativeBinding {
 function loadNativeBinding(): NativeBinding {
   const root = join(__dirname, "..");
   const candidates = [
+    join(root, binaryName()),
     join(root, "index.node"),
-    join(root, "native", "index.node"),
-    join(root, binaryName())
+    join(root, "native", "index.node")
   ];
 
   for (const filePath of candidates) {

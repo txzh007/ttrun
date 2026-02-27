@@ -13,17 +13,23 @@ export interface IceServer {
 
 export interface IssueCredentialOptions {
   ttlSec?: number;
+  username?: string;
   userId?: string;
 }
 
 export interface TurnServiceOptions {
   realm: string;
-  authSecret: string;
+  authSecret?: string;
   listenPort?: number;
   minPort?: number;
   maxPort?: number;
   publicIp?: string;
   listeningIp?: string;
+  username?: string;
+  password?: string;
+  userId?: string;
+  ttlSec?: number;
+  disableCredentialExpiry?: boolean;
 }
 
 export interface StartOptions {
