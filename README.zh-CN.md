@@ -1,6 +1,6 @@
 # Tturn（中文）
 
-[English（主文档）](./README.md) | [中文](./README.zh-CN.md)
+[English（主文档）](./README.md) | [中文](./README.zh-CN.md) | [更新日志](./CHANGELOG.md)
 
 `tturn` 是一个高性能的 Node.js TURN 服务包。
 它使用内嵌原生核心（Rust + N-API），可以直接通过 npm 安装并运行，不依赖 Docker，也不需要额外安装 `turnserver.exe` 作为运行时。
@@ -92,7 +92,11 @@ TURN_REALM=turn.example.com TURN_USERNAME=alice TURN_PASSWORD=alice-pass TTURN_D
 - `username` / `userId`（可选）：默认凭证用户名种子，`username` 优先级更高。
 - `ttlSec`（可选）：`start()` 与 `issueCredential()` 的默认凭证时效。
 - `disableCredentialExpiry`（可选）：禁用时间戳过期校验，生成不过期凭证。
-- `minPort` / `maxPort`：中继分配端口范围（已在 native TURN 分配器中生效）。
+- `minPort` / `maxPort`：中继分配端口范围（必须成对配置）。
+
+传输协议说明：
+
+- 当前 native 实现只返回 UDP 中继地址（`turn:...?...transport=udp`）。
 
 `authSecret` 和 `password` 至少需要提供一个。
 

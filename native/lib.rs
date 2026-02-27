@@ -131,13 +131,8 @@ impl NativeTurnService {
     let min_port = self.options.minPort;
     let max_port = self.options.maxPort;
 
-    if let (Some(min), Some(max)) = (min_port, max_port) {
-      if min == 0 || max == 0 || max < min {
-        return Err(Error::new(
-          Status::InvalidArg,
-          "invalid relay port range (minPort/maxPort)".to_string(),
-        ));
-      }
+    if let Err(message) = validate_port_range(min_port, max_port) {
+      return Err(Error::new(Status::InvalidArg, message));
     }
 
     let server = self.runtime.block_on(async move {
@@ -230,16 +225,7 @@ impl NativeTurnService {
 
   #[napi(js_name = "getIceUrls")]
   pub fn get_ice_urls(&self) -> Vec<String> {
-    vec![
-      format!(
-        "turn:{}:{}?transport=udp",
-        self.options.publicIp, self.options.listenPort
-      ),
-      format!(
-        "turn:{}:{}?transport=tcp",
-        self.options.publicIp, self.options.listenPort
-      ),
-    ]
+    build_ice_urls(&self.options.publicIp, self.options.listenPort)
   }
 
   #[napi]
@@ -323,4 +309,44 @@ fn hmac_password(secret: &str, username: &str) -> Result<String> {
 
 fn to_napi_err<E: std::fmt::Display>(error: E) -> Error {
   Error::new(Status::GenericFailure, error.to_string())
+}
+
+fn validate_port_range(min_port: Option<u16>, max_port: Option<u16>) -> std::result::Result<(), String> {
+  match (min_port, max_port) {
+    (None, None) => Ok(()),
+    (Some(min), Some(max)) => {
+      if min == 0 || max == 0 || max < min {
+        return Err("invalid relay port range (minPort/maxPort)".to_string());
+      }
+      Ok(())
+    }
+    _ => Err("minPort and maxPort must be provided together".to_string()),
+  }
+}
+
+fn build_ice_urls(public_ip: &str, listen_port: u16) -> Vec<String> {
+  vec![format!("turn:{}:{}?transport=udp", public_ip, listen_port)]
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn rejects_partial_port_range() {
+    assert!(validate_port_range(Some(50000), None).is_err());
+    assert!(validate_port_range(None, Some(51000)).is_err());
+  }
+
+  #[test]
+  fn accepts_empty_or_complete_valid_port_range() {
+    assert!(validate_port_range(None, None).is_ok());
+    assert!(validate_port_range(Some(50000), Some(51000)).is_ok());
+  }
+
+  #[test]
+  fn generates_udp_only_ice_url() {
+    let urls = build_ice_urls("1.2.3.4", 3478);
+    assert_eq!(urls, vec!["turn:1.2.3.4:3478?transport=udp".to_string()]);
+  }
 }

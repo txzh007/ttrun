@@ -1,6 +1,6 @@
 # Tturn
 
-[English (default)](./README.md) | [中文](./README.zh-CN.md)
+[English (default)](./README.md) | [中文](./README.zh-CN.md) | [Changelog](./CHANGELOG.md)
 
 `tturn` is a high-performance TURN server package for Node.js.
 It embeds a native Rust core via N-API, so you can install from npm and run directly.
@@ -93,8 +93,8 @@ Optional env:
 
 - `TURN_PUBLIC_IP`
 - `TURN_PORT`
-- `TURN_MIN_PORT`
-- `TURN_MAX_PORT`
+- `TURN_MIN_PORT` (must be provided together with `TURN_MAX_PORT`)
+- `TURN_MAX_PORT` (must be provided together with `TURN_MIN_PORT`)
 - `TTURN_TTL_SEC`
 - `TTURN_USER_ID`
 - `TTURN_USERNAME` (or `TURN_USERNAME`)
@@ -111,7 +111,11 @@ Optional env:
 - `username` / `userId` (optional): default credential username seed. `username` has higher priority.
 - `ttlSec` (optional): default credential TTL used by `start()` and `issueCredential()`.
 - `disableCredentialExpiry` (optional): disable timestamp expiry check and issue non-expiring credentials.
-- `minPort` / `maxPort`: relay allocation port range (effective in native TURN allocator).
+- `minPort` / `maxPort`: relay allocation port range (must be configured as a pair).
+
+Transport note:
+
+- Current native implementation exposes UDP relay URLs only (`turn:...?...transport=udp`).
 
 At least one of `authSecret` or `password` must be provided.
 

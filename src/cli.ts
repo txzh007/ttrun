@@ -13,13 +13,13 @@ async function run(): Promise<void> {
       authSecret: authOptions.authSecret,
       password: authOptions.password,
       publicIp: process.env.TURN_PUBLIC_IP,
-      listenPort: process.env.TURN_PORT ? Number(process.env.TURN_PORT) : 3478,
-      minPort: process.env.TURN_MIN_PORT ? Number(process.env.TURN_MIN_PORT) : undefined,
-      maxPort: process.env.TURN_MAX_PORT ? Number(process.env.TURN_MAX_PORT) : undefined,
+      listenPort: readPortEnv("TURN_PORT") ?? 3478,
+      minPort: readPortEnv("TURN_MIN_PORT"),
+      maxPort: readPortEnv("TURN_MAX_PORT"),
       disableCredentialExpiry: readBoolEnv("TTURN_DISABLE_CREDENTIAL_EXPIRY") ?? Boolean(authOptions.password)
     });
     const ice = service.issueCredential({
-      ttlSec: process.env.TTURN_TTL_SEC ? Number(process.env.TTURN_TTL_SEC) : 3600,
+      ttlSec: readPositiveIntEnv("TTURN_TTL_SEC") ?? 3600,
       userId: process.env.TTURN_USER_ID,
       username: readUsernameEnv()
     });
@@ -35,10 +35,10 @@ async function run(): Promise<void> {
       authSecret: authOptions.authSecret,
       password: authOptions.password,
       publicIp: process.env.TURN_PUBLIC_IP,
-      listenPort: process.env.TURN_PORT ? Number(process.env.TURN_PORT) : 3478,
-      minPort: process.env.TURN_MIN_PORT ? Number(process.env.TURN_MIN_PORT) : undefined,
-      maxPort: process.env.TURN_MAX_PORT ? Number(process.env.TURN_MAX_PORT) : undefined,
-      ttlSec: process.env.TTURN_TTL_SEC ? Number(process.env.TTURN_TTL_SEC) : 3600,
+      listenPort: readPortEnv("TURN_PORT") ?? 3478,
+      minPort: readPortEnv("TURN_MIN_PORT"),
+      maxPort: readPortEnv("TURN_MAX_PORT"),
+      ttlSec: readPositiveIntEnv("TTURN_TTL_SEC") ?? 3600,
       username: readUsernameEnv(),
       userId: process.env.TTURN_USER_ID,
       disableCredentialExpiry: readBoolEnv("TTURN_DISABLE_CREDENTIAL_EXPIRY") ?? Boolean(authOptions.password)
@@ -105,6 +105,34 @@ function readBoolEnv(name: string): boolean | undefined {
   }
 
   return value === "1" || value.toLowerCase() === "true";
+}
+
+function readPositiveIntEnv(name: string): number | undefined {
+  const value = process.env[name];
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid env ${name}: expected a positive integer`);
+  }
+
+  return parsed;
+}
+
+function readPortEnv(name: string): number | undefined {
+  const value = process.env[name];
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+    throw new Error(`Invalid env ${name}: expected an integer between 1 and 65535`);
+  }
+
+  return parsed;
 }
 
 function waitForSignal(): Promise<void> {
