@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [Unreleased]
 
 ### Changed
+- Set credential expiry behavior to non-expiring by default (`disableCredentialExpiry: true`) for both API and CLI unless explicitly disabled.
 - Return UDP-only ICE URLs from native service output to match current runtime transport support.
 - Validate relay port range options strictly: `minPort` and `maxPort` must be provided together.
 - Add stricter CLI env parsing for numeric values:

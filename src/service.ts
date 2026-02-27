@@ -7,7 +7,7 @@ export class TurnService {
 
   constructor(options: TurnServiceOptions) {
     const { username, password, userId, ttlSec, ...nativeOptions } = options;
-    const disableCredentialExpiry = options.disableCredentialExpiry ?? Boolean(password);
+    const disableCredentialExpiry = options.disableCredentialExpiry ?? true;
 
     this.native = new binding.NativeTurnService({
       ...nativeOptions,

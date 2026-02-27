@@ -16,7 +16,7 @@ async function run(): Promise<void> {
       listenPort: readPortEnv("TURN_PORT") ?? 3478,
       minPort: readPortEnv("TURN_MIN_PORT"),
       maxPort: readPortEnv("TURN_MAX_PORT"),
-      disableCredentialExpiry: readBoolEnv("TTURN_DISABLE_CREDENTIAL_EXPIRY") ?? Boolean(authOptions.password)
+      disableCredentialExpiry: readBoolEnv("TTURN_DISABLE_CREDENTIAL_EXPIRY") ?? true
     });
     const ice = service.issueCredential({
       ttlSec: readPositiveIntEnv("TTURN_TTL_SEC") ?? 3600,
@@ -41,7 +41,7 @@ async function run(): Promise<void> {
       ttlSec: readPositiveIntEnv("TTURN_TTL_SEC") ?? 3600,
       username: readUsernameEnv(),
       userId: process.env.TTURN_USER_ID,
-      disableCredentialExpiry: readBoolEnv("TTURN_DISABLE_CREDENTIAL_EXPIRY") ?? Boolean(authOptions.password)
+      disableCredentialExpiry: readBoolEnv("TTURN_DISABLE_CREDENTIAL_EXPIRY") ?? true
     });
     const ice = await service.start();
     process.stdout.write("tturn started\n");

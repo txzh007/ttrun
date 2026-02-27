@@ -98,7 +98,7 @@ Optional env:
 - `TTURN_TTL_SEC`
 - `TTURN_USER_ID`
 - `TTURN_USERNAME` (or `TURN_USERNAME`)
-- `TTURN_DISABLE_CREDENTIAL_EXPIRY` (`1` or `true`)
+- `TTURN_DISABLE_CREDENTIAL_EXPIRY` (`1`/`true` keeps credentials non-expiring; set `0`/`false` to enable expiry)
 
 ## API options
 
@@ -110,7 +110,7 @@ Optional env:
 - `listeningIp` (default `0.0.0.0`): bind address.
 - `username` / `userId` (optional): default credential username seed. `username` has higher priority.
 - `ttlSec` (optional): default credential TTL used by `start()` and `issueCredential()`.
-- `disableCredentialExpiry` (optional): disable timestamp expiry check and issue non-expiring credentials.
+- `disableCredentialExpiry` (optional, default `true`): disable timestamp expiry check and issue non-expiring credentials. Set to `false` to enforce expiry.
 - `minPort` / `maxPort`: relay allocation port range (must be configured as a pair).
 
 Transport note:

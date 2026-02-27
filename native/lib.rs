@@ -125,9 +125,9 @@ impl NativeTurnService {
     let public_ip = self.options.publicIp.clone();
     let realm = self.options.realm.clone();
     let secret = self.options.authSecret.clone();
-    let disable_credential_expiry = self.options.disableCredentialExpiry.unwrap_or(false);
     let static_username = self.options.username.clone().filter(|v| !v.is_empty());
     let static_password = self.options.password.clone().filter(|v| !v.is_empty());
+    let disable_credential_expiry = resolve_disable_credential_expiry(self.options.disableCredentialExpiry, static_password.is_some());
     let min_port = self.options.minPort;
     let max_port = self.options.maxPort;
 
@@ -198,7 +198,7 @@ impl NativeTurnService {
   ) -> Result<NativeCredential> {
     let static_password = self.options.password.clone().filter(|v| !v.is_empty());
     let static_username = self.options.username.clone().filter(|v| !v.is_empty());
-    let disable_credential_expiry = self.options.disableCredentialExpiry.unwrap_or(false) || static_password.is_some();
+    let disable_credential_expiry = resolve_disable_credential_expiry(self.options.disableCredentialExpiry, static_password.is_some());
     let ttl = ttl_sec.unwrap_or(3600).max(60);
     let expires_at = if disable_credential_expiry {
       0
@@ -328,6 +328,10 @@ fn build_ice_urls(public_ip: &str, listen_port: u16) -> Vec<String> {
   vec![format!("turn:{}:{}?transport=udp", public_ip, listen_port)]
 }
 
+fn resolve_disable_credential_expiry(config_value: Option<bool>, has_static_password: bool) -> bool {
+  config_value.unwrap_or(true) || has_static_password
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -348,5 +352,15 @@ mod tests {
   fn generates_udp_only_ice_url() {
     let urls = build_ice_urls("1.2.3.4", 3478);
     assert_eq!(urls, vec!["turn:1.2.3.4:3478?transport=udp".to_string()]);
+  }
+
+  #[test]
+  fn default_credential_expiry_is_disabled() {
+    assert!(resolve_disable_credential_expiry(None, false));
+  }
+
+  #[test]
+  fn explicit_false_keeps_static_password_non_expiring() {
+    assert!(resolve_disable_credential_expiry(Some(false), true));
   }
 }

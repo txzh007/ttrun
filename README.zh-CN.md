@@ -91,7 +91,7 @@ TURN_REALM=turn.example.com TURN_USERNAME=alice TURN_PASSWORD=alice-pass TTURN_D
 - `listeningIp`（默认 `0.0.0.0`）：本地绑定地址。
 - `username` / `userId`（可选）：默认凭证用户名种子，`username` 优先级更高。
 - `ttlSec`（可选）：`start()` 与 `issueCredential()` 的默认凭证时效。
-- `disableCredentialExpiry`（可选）：禁用时间戳过期校验，生成不过期凭证。
+- `disableCredentialExpiry`（可选，默认 `true`）：禁用时间戳过期校验，生成不过期凭证。设置为 `false` 时启用过期校验。
 - `minPort` / `maxPort`：中继分配端口范围（必须成对配置）。
 
 传输协议说明：
